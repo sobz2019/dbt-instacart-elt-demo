@@ -2,13 +2,13 @@ name: dbt CI/CD Pipeline
 
 on:
   pull_request:
-    branches: [ main, develop ]
+    branches: [ main]
   push:
     branches: [ main ]
 
 env:
-# Tell dbt to read profiles.yml from the repo (.dbt folder)
-  DBT_PROFILES_DIR: ${{ github.workspace }}/.dbt  # This tells dbt: “Look inside my repo for profiles instead of ~/.dbt”.
+  # Tell dbt to read profiles.yml from the repo (.dbt folder) instead of ~/.dbt
+  DBT_PROFILES_DIR: ${{ github.workspace }}/.dbt
 
 jobs:
   # -------- PR validation against DEV environment (ephemeral schema) --------
@@ -24,16 +24,16 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.13.7'
 
       - name: Install Poetry
         run: |
-          pip install --upgrade pip
-          pip install poetry
+          python -m pip install --upgrade pip
+          python -m pip install poetry
 
       - name: Install dependencies
         run: poetry install --no-interaction --no-root
-      
+
       # Map environment secrets → env vars consumed by profiles.yml
       - name: Export Snowflake env vars (dev)
         env:
@@ -50,7 +50,7 @@ jobs:
           echo "SNOWFLAKE_ROLE=$SNOWFLAKE_ROLE" >> $GITHUB_ENV
           echo "SNOWFLAKE_WAREHOUSE=$SNOWFLAKE_WAREHOUSE" >> $GITHUB_ENV
           echo "SNOWFLAKE_DATABASE=$SNOWFLAKE_DATABASE" >> $GITHUB_ENV
-      
+
       # Ephemeral schema per PR/run so multiple PRs never collide
       - name: Choose ephemeral schema
         run: echo "DBT_SCHEMA=CI_PR_${{ github.event.number }}_${{ github.run_id }}" >> $GITHUB_ENV
@@ -61,10 +61,18 @@ jobs:
       - name: dbt deps
         run: poetry run dbt deps
 
+      # Compile first so state-based selection has a state dir in target/
+      - name: dbt compile (prepare state)
+        run: poetry run dbt compile --target dev
+
       - name: dbt build (slim, only changed models)
         run: poetry run dbt build --target dev --select state:modified+ --defer --state target
+      
+      # - name: Drop ephemeral schema
+      #   run: |
+      #     poetry run dbt run-operation drop_schema --args "{schema_name: $DBT_SCHEMA}"
 
-  # Main branch build (Test env)
+  # -------- Main branch build (TEST environment, full build) --------
   deploy-test:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
@@ -77,12 +85,12 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.13.7'
 
       - name: Install Poetry
         run: |
-          pip install --upgrade pip
-          pip install poetry
+          python -m pip install --upgrade pip
+          python -m pip install poetry
 
       - name: Install dependencies
         run: poetry install --no-interaction --no-root
@@ -105,3 +113,7 @@ jobs:
 
       - name: dbt build (full)
         run: poetry run dbt build --target test
+
+
+
+
