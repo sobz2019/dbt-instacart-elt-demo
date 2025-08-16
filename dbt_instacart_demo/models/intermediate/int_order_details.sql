@@ -23,3 +23,4 @@ SELECT
 FROM orders o
 JOIN items i   ON o.order_id = i.order_id
 LEFT JOIN prod p ON i.product_id = p.product_id
+

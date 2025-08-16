@@ -3,6 +3,7 @@
     cluster_by=['customer_id']
 ) }}
 
+
 SELECT
   customer_id,
   COUNT(DISTINCT order_id)                               AS total_orders,

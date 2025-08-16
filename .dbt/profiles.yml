@@ -26,3 +26,5 @@ dbt_instacart_demo:
       schema: "{{ env_var('DBT_SCHEMA', 'DBT_TEST') }}"
       threads: 4
       client_session_keep_alive: False
+
+
