@@ -81,6 +81,10 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: test
+    # All steps default to run inside the dbt project folder
+    defaults:
+      run:
+        working-directory: dbt_instacart_demo
 
     steps:
       - name: Checkout repo
@@ -110,13 +114,13 @@ jobs:
           echo "DBT_SCHEMA=DBT_TEST" >> $GITHUB_ENV
 
       - name: dbt debug
-        run: poetry run dbt debug --target test
+        run: poetry run dbt debug --project-dir ./dbt_instacart_demo --target test
 
       - name: dbt deps
-        run: poetry run dbt deps
+        run: poetry run dbt deps --project-dir ./dbt_instacart_demo --target test
 
       - name: dbt build (full)
-        run: poetry run dbt build --target test
+        run: poetry run dbt build --project-dir ./dbt_instacart_demo --target test
 
 
 
