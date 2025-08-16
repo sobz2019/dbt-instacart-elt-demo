@@ -1,0 +1,53 @@
+version: 2
+
+sources:
+  - name: instacart_raw
+    description: Raw Instacart dataset
+    database: INSTACART_DEMO
+    schema: RAW_INSTACART
+    
+    tables:
+      - name: orders
+        description: Order metadata
+        columns:
+          - name: order_id
+            tests:
+              - unique
+              - not_null
+          - name: user_id
+            tests:
+              - not_null
+              
+      - name: order_products
+        description: Products in each order
+        columns:
+          - name: order_id
+            tests:
+              - not_null
+          - name: product_id
+            tests:
+              - not_null
+              
+      - name: products
+        description: Product catalog
+        columns:
+          - name: product_id
+            tests:
+              - unique
+              - not_null
+              
+      - name: aisles
+        description: Aisle lookup
+        columns:
+          - name: aisle_id
+            tests:
+              - unique
+              - not_null
+              
+      - name: departments
+        description: Department lookup
+        columns:
+          - name: department_id
+            tests:
+              - unique
+              - not_null

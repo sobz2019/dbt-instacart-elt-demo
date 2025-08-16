@@ -1,0 +1,24 @@
+[project]
+name = "dbt-instacart-elt-demo"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "Sobin"}
+]
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "dbt-core (>=1.10.7,<2.0.0)",
+    "dbt-snowflake (>=1.10.0,<2.0.0)",
+    "pandas (>=2.3.1,<3.0.0)",
+    "sqlfluff (>=3.4.2,<4.0.0)",
+    "sqlfluff-templater-dbt (>=3.4.2,<4.0.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+package-mode = false

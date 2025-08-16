@@ -1,0 +1,107 @@
+name: dbt CI/CD Pipeline
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+  push:
+    branches: [ main ]
+
+env:
+# Tell dbt to read profiles.yml from the repo (.dbt folder)
+  DBT_PROFILES_DIR: ${{ github.workspace }}/.dbt  # This tells dbt: “Look inside my repo for profiles instead of ~/.dbt”.
+
+jobs:
+  # -------- PR validation against DEV environment (ephemeral schema) --------
+  pr-validate-dev:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    environment: dev
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Poetry
+        run: |
+          pip install --upgrade pip
+          pip install poetry
+
+      - name: Install dependencies
+        run: poetry install --no-interaction --no-root
+      
+      # Map environment secrets → env vars consumed by profiles.yml
+      - name: Export Snowflake env vars (dev)
+        env:
+          SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+          SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
+          SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
+          SNOWFLAKE_ROLE: ${{ secrets.SNOWFLAKE_ROLE }}
+          SNOWFLAKE_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
+          SNOWFLAKE_DATABASE: ${{ secrets.SNOWFLAKE_DATABASE }}
+        run: |
+          echo "SNOWFLAKE_ACCOUNT=$SNOWFLAKE_ACCOUNT" >> $GITHUB_ENV
+          echo "SNOWFLAKE_USER=$SNOWFLAKE_USER" >> $GITHUB_ENV
+          echo "SNOWFLAKE_PASSWORD=$SNOWFLAKE_PASSWORD" >> $GITHUB_ENV
+          echo "SNOWFLAKE_ROLE=$SNOWFLAKE_ROLE" >> $GITHUB_ENV
+          echo "SNOWFLAKE_WAREHOUSE=$SNOWFLAKE_WAREHOUSE" >> $GITHUB_ENV
+          echo "SNOWFLAKE_DATABASE=$SNOWFLAKE_DATABASE" >> $GITHUB_ENV
+      
+      # Ephemeral schema per PR/run so multiple PRs never collide
+      - name: Choose ephemeral schema
+        run: echo "DBT_SCHEMA=CI_PR_${{ github.event.number }}_${{ github.run_id }}" >> $GITHUB_ENV
+
+      - name: dbt debug
+        run: poetry run dbt debug --target dev
+
+      - name: dbt deps
+        run: poetry run dbt deps
+
+      - name: dbt build (slim, only changed models)
+        run: poetry run dbt build --target dev --select state:modified+ --defer --state target
+
+  # Main branch build (Test env)
+  deploy-test:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: test
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Poetry
+        run: |
+          pip install --upgrade pip
+          pip install poetry
+
+      - name: Install dependencies
+        run: poetry install --no-interaction --no-root
+
+      - name: Set Snowflake env vars (test)
+        run: |
+          echo "SNOWFLAKE_ACCOUNT=${{ secrets.SNOWFLAKE_ACCOUNT }}" >> $GITHUB_ENV
+          echo "SNOWFLAKE_USER=${{ secrets.SNOWFLAKE_USER }}" >> $GITHUB_ENV
+          echo "SNOWFLAKE_PASSWORD=${{ secrets.SNOWFLAKE_PASSWORD }}" >> $GITHUB_ENV
+          echo "SNOWFLAKE_ROLE=${{ secrets.SNOWFLAKE_ROLE }}" >> $GITHUB_ENV
+          echo "SNOWFLAKE_WAREHOUSE=${{ secrets.SNOWFLAKE_WAREHOUSE }}" >> $GITHUB_ENV
+          echo "SNOWFLAKE_DATABASE=${{ secrets.SNOWFLAKE_DATABASE }}" >> $GITHUB_ENV
+          echo "DBT_SCHEMA=DBT_TEST" >> $GITHUB_ENV
+
+      - name: dbt debug
+        run: poetry run dbt debug --target test
+
+      - name: dbt deps
+        run: poetry run dbt deps
+
+      - name: dbt build (full)
+        run: poetry run dbt build --target test
