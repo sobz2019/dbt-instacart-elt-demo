@@ -16,6 +16,10 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     environment: dev
+    # All steps default to run inside the dbt project folder
+    defaults:
+      run:
+        working-directory: dbt_instacart_demo
 
     steps:
       - name: Checkout repo
